@@ -1,0 +1,31 @@
+package student;
+
+public class AI {
+    /**
+     * Chooses a card to play from the AI's hand that is valid based on the current card pile.
+     * The AI scans through its hand from left to right and returns the first playable card.
+     * If no valid card is found, it returns null.
+     *
+     * @param hand the hand of cards the AI can choose from
+     * @param cardPile the pile of cards in the current game round
+     * @return the first playable card in the hand, or null if no card can be played
+     */
+    public Card getPlay(Hand hand, CardPile cardPile) {
+        for (int i = 0; i < hand.getSize(); i++) {
+            Card card = hand.get(i);
+            if (cardPile.canPlay(card)) {
+                return card;
+            }
+        }
+        return null;
+    }
+    /**
+     * Returns the name of this AI strategy as a string.
+     *
+     * @return the name of this AI strategy, "Random Card AI"
+     */
+    @Override
+    public String toString() {
+        return "Random Card AI";
+    }
+}

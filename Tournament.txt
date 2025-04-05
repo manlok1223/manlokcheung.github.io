@@ -1,0 +1,47 @@
+package student;
+
+public class Tournament {
+    /**
+     * The main method runs a series of matches between different AI strategies
+     * and displays the win rate of each AI in different match-ups.
+     * The win rate is calculated by running multiple trials for each AI pairing.
+     *
+     * @param args command-line arguments (not used)
+     */
+    public static void main(String[] args) {
+        AI randomAI = new AI();
+        AI smallestCardAI = new SmallestCardAI();
+        AI biggestCardAI = new BiggestCardAI();
+        int nTrials = 1000;
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                randomAI, randomAI, runMatch(randomAI, randomAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                randomAI, smallestCardAI, runMatch(randomAI, smallestCardAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                randomAI, biggestCardAI, runMatch(randomAI, biggestCardAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                smallestCardAI, randomAI, runMatch(smallestCardAI, randomAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                smallestCardAI, smallestCardAI, runMatch(smallestCardAI, smallestCardAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                smallestCardAI, biggestCardAI, runMatch(smallestCardAI, biggestCardAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                biggestCardAI, randomAI, runMatch(biggestCardAI, randomAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                biggestCardAI, smallestCardAI, runMatch(biggestCardAI, smallestCardAI, nTrials));
+        System.out.printf("%s vs %s winRate: %.3f%n",
+                biggestCardAI, biggestCardAI, runMatch(biggestCardAI, biggestCardAI, nTrials));
+    }
+    /**
+     * Runs multiple matches between two AI players and calculates the win rate for the first AI player.
+     *
+     * @param ai1 the first AI player
+     * @param ai2 the second AI player
+     * @param nTrials the number of games to play for calculating the win rate
+     * @return the win rate for ai1 as a double between 0 and 1
+     */
+    private static double runMatch(AI ai1, AI ai2, int nTrials) {
+        UnoWarMatch match = new UnoWarMatch(ai1, ai2);
+        return match.winRate(nTrials);
+    }
+}

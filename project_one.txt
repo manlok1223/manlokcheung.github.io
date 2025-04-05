@@ -1,0 +1,310 @@
+import random
+
+def generate_board(an_int):
+    """
+    Generates an n x n board with alternating black and white pieces.
+    Args:
+    an_int (int): The size of the board (number of rows and columns).
+    Returns:
+    list: A board represented as a list of lists where 1 is black and 2 is white.
+    """
+    if an_int <= 0:
+        return []
+    
+    board = []  
+    for i in range(an_int):
+        row = []
+        for j in range(an_int):
+            if (i + j) % 2 == 0:
+                row.append(1) 
+            else:
+                row.append(2)  
+        board.append(row)
+    print(f"Generated board with {len(board)} rows and {len(board[0])} columns (expected {an_int}x{an_int})")
+    return board
+
+def generate_board_r(an_int_row, an_int_col):
+    """
+    Generates a rectangular board of size m x n with alternating black and white pieces.
+    Args:
+    an_int_row (int): The number of rows for the board.
+    an_int_col (int): The number of columns for the board.
+    Returns:
+    list: A board represented as a list of lists where 1 is black and 2 is white.
+    """
+    if an_int_row <= 0 or an_int_col <= 0:
+        return []
+    board = []
+    for i in range(an_int_row):
+        row = []
+        for j in range(an_int_col):
+            if (i + j) % 2 == 0:
+                row.append(1)  
+            else:
+                row.append(2)  
+        board.append(row)
+    return board
+
+def get_board_as_string(board):
+    """
+    Returns a string representation of the current board, including row/column labels and grid lines.
+    Args:
+    board (list): A list of lists representing the board state.
+    Returns:
+    str: A string representation of the board where black is ●, white is ○, and empty spaces are ' '.
+    """
+    result = []
+
+    column_numbers = "   " + " ".join(str(i) for i in range(len(board[0])))
+    result.append(column_numbers)
+
+    grid_line = "  " + "+-" * len(board[0]) + "+"
+    result.append(grid_line)
+
+    for i, row in enumerate(board):
+        row_str = f'{i} |' + '|'.join(
+            ['\u25CF' if cell == 1 else '\u25CB' if cell == 2 else ' ' for cell in row]
+        ) + '|'
+        print(f"Processing row {i}: {row_str}")  # 加入调试输出
+        result.append(row_str)
+        result.append(grid_line)
+
+    return '\n'.join(result)
+
+def prep_board_human(board):
+    """
+    Allows the user to remove two pieces from the board (one black, one white) to start the game.
+    Args:
+    board (list): A list of lists representing the current board state.
+    Returns:
+    None: The function modifies the board in place.
+    """
+    print(get_board_as_string(board)) 
+    piece_1_removed = False
+    piece_2_removed = False
+
+    while not (piece_1_removed and piece_2_removed):
+        try:
+            if not piece_1_removed:
+                r1 = int(input("Enter the row for the first piece to remove: "))
+                c1 = int(input("Enter the column for the first piece to remove: "))
+                if not (0 <= r1 < len(board)) or not (0 <= c1 < len(board[0])):
+                    print("Invalid input, position out of bounds. Please try again.")
+                    continue
+
+                if r1 == 0 or r1 == len(board) - 1 or c1 == 0 or c1 == len(board[0]) - 1:
+                    print("Invalid selection, the first piece cannot be on the board's edge.")
+                    continue
+
+                if board[r1][c1] == 0:
+                    print("Invalid selection, the position is empty.")
+                    continue
+
+                piece_1_removed = True
+                color_1 = board[r1][c1]
+            else:
+                r2 = int(input("Enter the row for the second piece to remove: "))
+                c2 = int(input("Enter the column for the second piece to remove: "))
+                if not (0 <= r2 < len(board)) or not (0 <= c2 < len(board[0])):
+                    print("Invalid input, position out of bounds. Please try again.")
+                    continue
+
+                if r2 == 0 or r2 == len(board) - 1 or c2 == 0 or c2 == len(board[0]):
+                    print("Invalid selection, the second piece cannot be on the board's edge.")
+                    continue
+
+                if board[r2][c2] == 0:
+                    print("Invalid selection, the position is empty.")
+                    continue
+
+                color_2 = board[r2][c2]
+                if color_1 == color_2:
+                    print("Invalid selection, the pieces must be different colors.")
+                    continue
+
+                piece_2_removed = True
+
+        except ValueError:
+            print("Invalid input, please enter valid row and column numbers.")
+
+    board[r1][c1] = 0
+    board[r2][c2] = 0
+
+
+def is_valid_move(board, move):
+    """
+    Checks if a move is valid. A valid move must jump over an opponent's piece and land on an empty spot.
+    Args:
+    board (list): The current board state.
+    move (tuple): A tuple of two tuples, representing the start and end positions (row, col).
+    Returns:
+    bool: True if the move is valid, False otherwise.
+    """
+    start, end = move
+    sr, sc = start
+    er, ec = end
+    if not (0 <= sr < len(board) and 0 <= sc < len(board[0]) and
+            0 <= er < len(board) and 0 <= ec < len(board[0])):
+        return False
+    
+    if board[sr][sc] == 0 or board[er][ec] != 0:
+        return False
+
+    if sr == er:
+        step = 2 if sc < ec else -2
+        for col in range(sc + step, ec, step):
+            mid_c = (sc + col) // 2
+            if board[sr][mid_c] == 0 or board[sr][mid_c] == board[sr][sc]:
+                return False
+        return True
+    
+    elif sc == ec:  
+        step = 2 if sr < er else -2
+        for row in range(sr + step, er, step):
+            mid_r = (sr + row) // 2
+            if board[mid_r][sc] == 0 or board[mid_r][sc] == board[sr][sc]:  
+                return False
+        return True
+
+    return False
+
+
+def get_valid_moves(board, player):
+    """
+    Gets a list of all valid moves for a given player.
+    Args:
+    board (list): The current board state.
+    player (int): The player's piece (1 for black, 2 for white).
+    Returns:
+    list: A list of valid moves for the player.
+    """
+    valid_moves = []
+    for r in range(len(board)):
+        for c in range(len(board[r])):
+            if board[r][c] == player:
+                moves = get_valid_moves_for_stone(board, (r, c))
+                valid_moves.extend(moves)
+    return valid_moves
+
+def get_valid_moves_for_stone(board, stone):
+    """
+    Gets a list of valid moves for a specific stone on the board, including multiple jumps.
+    Args:
+    board (list): The current board state.
+    stone (tuple): A tuple representing the (row, col) position of the stone.
+    Returns:
+    list: A list of valid moves for the given stone, including possible consecutive jumps.
+    """
+    r, c = stone
+    if board[r][c] == 0:
+        return []
+    moves = []
+    directions = [(-2, 0), (2, 0), (0, -2), (0, 2)]  
+    for dr, dc in directions:
+        next_row, next_col = r + dr, c + dc
+        mid_row, mid_col = r + dr // 2, c + dc // 2
+        while (0 <= next_row < len(board) and 0 <= next_col < len(board[0]) and
+               board[next_row][next_col] == 0 and 
+               board[mid_row][mid_col] != 0 and 
+               board[mid_row][mid_col] != board[r][c]):
+            moves.append(((r, c), (next_row, next_col)))
+            next_row += dr
+            next_col += dc
+            mid_row += dr
+            mid_col += dc
+    return moves
+
+def human_player(board, player):
+    """
+    Prompts the human player to make a move.
+    Args:
+    board (list): The current board state.
+    player (int): The player's piece (1 for black, 2 for white).
+    Returns:
+    tuple: A valid move chosen by the player, or an empty tuple if no moves are available.
+    """
+    valid_moves = get_valid_moves(board, player)
+    if not valid_moves:
+        return () 
+    
+    print(get_board_as_string(board)) 
+    while True:
+        try:
+            sr = int(input(f"Enter the starting row for player {player}: "))
+            sc = int(input(f"Enter the starting column for player {player}: "))
+            er = int(input(f"Enter the ending row for player {player}: "))
+            ec = int(input(f"Enter the ending column for player {player}: "))
+            if is_valid_move(board, ((sr, sc), (er, ec))):
+                return ((sr, sc), (er, ec))  
+            else:
+                print("Invalid move. Please try again.")
+        except (ValueError, IndexError):
+            print("Invalid input, please enter valid row and column numbers.")
+
+def random_player(board, player):
+    """
+    Chooses a valid move for the player at random.
+    Args:
+    board (list): The current board state.
+    player (int): The player's piece (1 for black, 2 for white).
+    Returns:
+    tuple: A randomly chosen valid move, or an empty tuple if no moves are available.
+    """
+    valid_moves = get_valid_moves(board, player)
+    if not valid_moves:
+        return ()
+    print(f"Valid moves for player {player}: {valid_moves}")
+    random_move = random.choice(valid_moves)
+    print(f"Random move selected for player {player}: {random_move}")
+    return random_move
+
+def ai_player(board, player):
+    """
+    Chooses the first valid move for the player.
+    Args:
+    board (list): The current board state.
+    player (int): The player's piece (1 for black, 2 for white).
+    Returns:
+    tuple: The first valid move found, or an empty tuple if no moves are available.
+    """
+    valid_moves = get_valid_moves(board, player)
+    if not valid_moves:
+        return ()
+    return valid_moves[0]
+
+def play_game(ai_black, ai_white, board):
+    """
+    Simulates a full game between two AI players (black and white).
+    Args:
+    ai_black (function): The function controlling the black player (1).
+    ai_white (function): The function controlling the white player (2).
+    board (list): The initial board state represented as a list of lists.
+    Returns:
+    int: The number representing the winner (1 for black, 2 for white).
+    """
+    current_player = random.choice([1, 2])  # 1 for black, 2 for white
+    print(f"Player {current_player} starts first")
+    
+    move_count = 0 
+    max_moves = 1000 
+
+    while move_count < max_moves:
+        if current_player == 1:
+            move = ai_black(board, 1)
+        else:
+            move = ai_white(board, 2)
+        if not move: 
+            return 2 if current_player == 1 else 1
+        start, end = move
+        sr, sc = start
+        er, ec = end
+        board[er][ec] = board[sr][sc]
+        board[sr][sc] = 0
+        if abs(sr - er) == 2 or abs(sc - ec) == 2: 
+            mid_r, mid_c = (sr + er) // 2, (sc + ec) // 2
+            board[mid_r][sc] = 0 if sc == ec else board[sr][mid_c]
+        current_player = 2 if current_player == 1 else 1  
+        move_count += 1
+    return 2 if current_player == 1 else 1
+
+

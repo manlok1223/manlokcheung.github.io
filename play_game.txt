@@ -1,0 +1,19 @@
+def random_player(board, player):
+    pass
+
+
+def prep_board_human(board):
+    pass
+
+
+def generate_board(an_int):
+    pass
+
+
+def play_game(a, b, c):
+    pass
+
+
+board = generate_board(8)
+prep_board_human(board)
+play_game(random_player, random_player, board)

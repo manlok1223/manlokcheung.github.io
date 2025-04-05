@@ -1,0 +1,307 @@
+#include "race_results.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// This is the (somewhat famous) djb2 hash
+unsigned hash(const char *str) {
+    unsigned hash_val = 5381;
+    int i = 0;
+    while (str[i] != '\0') {
+        hash_val = ((hash_val << 5) + hash_val) + str[i];
+        i++;
+    }
+    return hash_val % NUM_BUCKETS;
+}
+
+results_log_t *create_results_log(const char *log_name) {
+    results_log_t *log = malloc(sizeof(results_log_t));
+    if (log == NULL) {
+        return NULL;
+    }
+
+    strcpy(log->name, log_name);
+    log->size = 0;
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        log->buckets[i] = NULL;
+    }
+
+    return log;
+}
+
+const char *get_results_log_name(const results_log_t *log) {
+    if (log == NULL) {
+        return NULL;
+    }
+    return log->name;
+}
+
+int add_participant(results_log_t *log, const char *name, unsigned age, unsigned time_seconds) {
+    if (log == NULL || name == NULL || strlen(name) == 0 || strlen(name) >= NAME_LEN) {
+        return -1;
+    }
+    unsigned hash_index = hash(name);
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        unsigned idx = (hash_index + i) % NUM_BUCKETS;
+        if (log->buckets[idx] == NULL) {
+            participant_t *new_participant = malloc(sizeof(participant_t));
+            if (new_participant == NULL) {
+                return -1;
+            }
+            strcpy(new_participant->name, name);
+            new_participant->age = age;
+            new_participant->time_seconds = time_seconds;
+            log->buckets[idx] = new_participant;
+            log->size++;
+            return 0;
+        } else if (strcmp(log->buckets[idx]->name, name) == 0) {
+            return -1;
+        }
+        if (i == NUM_BUCKETS - 1 && log->buckets[idx] != NULL) {
+            return -1;
+        }
+    }
+    return -1;
+}
+
+const participant_t *find_participant(const results_log_t *log, const char *name) {
+    if (log == NULL || name == NULL) {
+        return NULL;
+    }
+    unsigned hash_index = hash(name);
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        unsigned idx = (hash_index + i) % NUM_BUCKETS;
+        participant_t *current = log->buckets[idx];
+        if (current == NULL) {
+            return NULL;
+        }
+        if (strcmp(current->name, name) == 0) {
+            return current;
+        }
+    }
+    return NULL;
+}
+
+void print_formatted_time(unsigned time_seconds) {
+    unsigned hours = time_seconds / (60 * 60);
+    time_seconds %= (60 * 60);
+    unsigned minutes = time_seconds / 60;
+    time_seconds %= 60;
+    printf("%u:%02u:%02u", hours, minutes, time_seconds);
+}
+
+void print_results_log(const results_log_t *log) {
+    if (log == NULL) {
+        printf("Error: Results log is NULL.\n");
+        return;
+    }
+    printf("%s Results\n", log->name);
+    if (log->size == 0) {
+        return;
+    }
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        participant_t *participant = log->buckets[i];
+        if (participant != NULL) {
+            printf("Name: %s", participant->name);
+            printf("\n");
+            printf("Age: %u\n", participant->age);
+            printf("Time: ");
+            print_formatted_time(participant->time_seconds);
+            printf("\n");
+        }
+    }
+}
+
+void free_results_log(results_log_t *log) {
+    if (log == NULL) {
+        return;
+    }
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        if (log->buckets[i] != NULL) {
+            free(log->buckets[i]);
+            log->buckets[i] = NULL;
+        }
+    }
+    free(log);
+}
+
+int write_results_log_to_text(const results_log_t *log) {
+    char file_name[NAME_LEN + strlen(".txt")];
+    strcpy(file_name, log->name);
+    strcat(file_name, ".txt");
+    FILE *f = fopen(file_name, "w");
+    if (f == NULL) {
+        return -1;
+    }
+    fprintf(f, "%u\n", log->size);
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        participant_t *participant = log->buckets[i];
+        if (participant != NULL) {
+            fprintf(f, "%s %u %u\n", participant->name, participant->age,
+                    participant->time_seconds);
+        }
+    }
+    fclose(f);
+    return 0;
+}
+
+results_log_t *read_results_log_from_text(const char *file_name) {
+    FILE *file = fopen(file_name, "r");
+    if (file == NULL) {
+        return NULL;
+    }
+    results_log_t *log = malloc(sizeof(results_log_t));
+    if (log == NULL) {
+        fclose(file);
+        return NULL;
+    }
+    strcpy(log->name, file_name);
+    log->name[NAME_LEN - 1] = '\0';
+    log->size = 0;
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        log->buckets[i] = NULL;
+    }
+    strncpy(log->name, file_name, NAME_LEN - 1);
+    log->name[NAME_LEN - 1] = '\0';
+    char *dot = strstr(log->name, ".txt");
+    if (dot != NULL) {
+        *dot = '\0';
+    }
+    if (fscanf(file, "%u", &log->size) != 1) {
+        fclose(file);
+        free(log);
+        return NULL;
+    }
+    for (unsigned i = 0; i < log->size; i++) {
+        participant_t *participant = malloc(sizeof(participant_t));
+        if (participant == NULL) {
+            fclose(file);
+            free_results_log(log);
+            return NULL;
+        }
+        if (fscanf(file, "%s %u %u\n", participant->name, &participant->age,
+                   &participant->time_seconds) != 3) {
+            free(participant);
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        unsigned hash_idx = hash(participant->name);
+        while (log->buckets[hash_idx] != NULL) {
+            hash_idx = (hash_idx + 1) % NUM_BUCKETS;
+        }
+        log->buckets[hash_idx] = participant;
+    }
+    fclose(file);
+    return log;
+}
+
+int write_results_log_to_binary(const results_log_t *log) {
+    if (log == NULL) {
+        return -1;
+    }
+    char file_name[NAME_LEN + 5];
+    snprintf(file_name, sizeof(file_name), "%s.bin", log->name);
+    FILE *file = fopen(file_name, "wb");
+    if (file == NULL) {
+        return -1;
+    }
+    if (fwrite(&log->size, sizeof(unsigned), 1, file) != 1) {
+        fclose(file);
+        return -1;
+    }
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        participant_t *participant = log->buckets[i];
+        if (participant != NULL) {
+            unsigned pname_len = strlen(participant->name);
+            if (fwrite(&pname_len, sizeof(unsigned), 1, file) != 1) {
+                fclose(file);
+                return -1;
+            }
+            if (fwrite(participant->name, sizeof(char), pname_len, file) != pname_len) {
+                fclose(file);
+                return -1;
+            }
+            if (fwrite(&participant->age, sizeof(unsigned), 1, file) != 1) {
+                fclose(file);
+                return -1;
+            }
+            if (fwrite(&participant->time_seconds, sizeof(unsigned), 1, file) != 1) {
+                fclose(file);
+                return -1;
+            }
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
+results_log_t *read_results_log_from_binary(const char *file_name) {
+    FILE *file = fopen(file_name, "rb");
+    if (file == NULL) {
+        return NULL;
+    }
+    results_log_t *log = malloc(sizeof(results_log_t));
+    if (log == NULL) {
+        fclose(file);
+        return NULL;
+    }
+    for (int i = 0; i < NUM_BUCKETS; i++) {
+        log->buckets[i] = NULL;
+    }
+    strncpy(log->name, file_name, NAME_LEN - 1);
+    log->name[NAME_LEN - 1] = '\0';
+    char *dot = strstr(log->name, ".bin");
+    if (dot != NULL) {
+        *dot = '\0';
+    }
+    if (fread(&log->size, sizeof(unsigned), 1, file) != 1) {
+        free_results_log(log);
+        fclose(file);
+        return NULL;
+    }
+    for (unsigned i = 0; i < log->size; i++) {
+        unsigned pname_len;
+        if (fread(&pname_len, sizeof(unsigned), 1, file) != 1) {
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        if (pname_len == 0 || pname_len >= NAME_LEN) {
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        char pname[NAME_LEN];
+        if (fread(pname, sizeof(char), pname_len, file) != pname_len) {
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        pname[pname_len] = '\0';
+        unsigned age, time_seconds;
+        if (fread(&age, sizeof(unsigned), 1, file) != 1 ||
+            fread(&time_seconds, sizeof(unsigned), 1, file) != 1) {
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        unsigned hash_idx = hash(pname);
+        while (log->buckets[hash_idx] != NULL) {
+            hash_idx = (hash_idx + 1) % NUM_BUCKETS;
+        }
+        participant_t *participant = malloc(sizeof(participant_t));
+        if (participant == NULL) {
+            free_results_log(log);
+            fclose(file);
+            return NULL;
+        }
+        strcpy(participant->name, pname);
+        participant->age = age;
+        participant->time_seconds = time_seconds;
+        log->buckets[hash_idx] = participant;
+    }
+    fclose(file);
+    return log;
+}
